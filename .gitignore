@@ -1,24 +1,46 @@
-# Compiled class file
-*.class
+```
+# Gradle
+.gradle/
+!gradle-8.5/
 
-# Log file
+# Build artifacts
+build/
+dist/
+
+# Dependencies
+.libs/
+lib/
+
+# Logs
 *.log
 
-# BlueJ files
-*.ctxt
+# Environment
+.env
+.env.local
+*.env.*
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
+# OS
+.DS_Store
+Thumbs.db
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Python (if applicable)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+.eggs/
+```

@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.videoeditor'
+version = '0.1.0-SNAPSHOT'
+sourceCompatibility = '17'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Lanterna TUI
+    implementation 'com.googlecode.lanterna:lanterna:3.1.1'
+    
+    // Jackson for JSON serialization
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.16.1'
+    
+    // Logging
+    implementation 'org.slf4j:slf4j-api:2.0.11'
+    implementation 'ch.qos.logback:logback-classic:1.4.14'
+    
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'com.videoeditor.presentation.tui.VideoEditorApp'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.videoeditor.presentation.tui.VideoEditorApp'
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
