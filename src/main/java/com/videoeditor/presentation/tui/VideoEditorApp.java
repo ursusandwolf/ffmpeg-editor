@@ -1,7 +1,9 @@
 package com.videoeditor.presentation.tui;
 
+import com.googlecode.lanterna.ScreenColor;
 import com.googlecode.lanterna.TerminalPosition;
 import com.googlecode.lanterna.TextCharacter;
+import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.input.KeyStroke;
 import com.googlecode.lanterna.input.KeyType;
 import com.googlecode.lanterna.screen.Screen;
@@ -12,6 +14,7 @@ import com.videoeditor.application.commands.ExportProjectCommand;
 import com.videoeditor.application.commands.ImportMediaCommand;
 import com.videoeditor.domain.*;
 import com.videoeditor.infrastructure.ffmpeg.FfprobeClient;
+import com.videoeditor.infrastructure.ffmpeg.FfmpegJobRunner;
 import com.videoeditor.infrastructure.persistence.ProjectRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +46,21 @@ public class VideoEditorApp {
     private AtomicBoolean isExporting = new AtomicBoolean(false);
     private String statusMessage = "Ready";
     private String lastProgress = "";
+
+    // Helper method to create TextCharacter with default style
+    private TextCharacter defaultChar() {
+        return new TextCharacter(' ');
+    }
+
+    // Helper method to create colored TextCharacter
+    private TextCharacter coloredChar(char c, TextColor foreground) {
+        return new TextCharacter(c).withForegroundColor(foreground);
+    }
+
+    // Helper method to create TextCharacter with background
+    private TextCharacter bgChar(char c, TextColor background) {
+        return new TextCharacter(' ').withBackgroundColor(background);
+    }
 
     public static void main(String[] args) {
         VideoEditorApp app = new VideoEditorApp();
@@ -128,14 +146,14 @@ public class VideoEditorApp {
         String title = "═══ Video Editor MVP ═══";
         int padding = (width - title.length()) / 2;
         
-        screen.putString(padding, 0, title, TextCharacter.DEFAULT);
-        screen.putString(2, 0, "Project: " + project.getName(), TextCharacter.DEFAULT);
+        screen.putString(padding, 0, title);
+        screen.putString(2, 0, "Project: " + project.getName());
         
         // Help text
         String help = "Ctrl+O:Import | Ctrl+S:Save | Ctrl+E:Export | Del:Delete | Q:Quit";
         int helpX = width - help.length() - 2;
         if (helpX > 20) {
-            screen.putString(helpX, 0, help, TextCharacter.DEFAULT);
+            screen.putString(helpX, 0, help);
         }
     }
 
@@ -145,7 +163,7 @@ public class VideoEditorApp {
         
         List<MediaAsset> assets = project.getMediaAssets();
         if (assets.isEmpty()) {
-            screen.putString(x + 2, y + 2, "[No media - Press Ctrl+O to import]", TextCharacter.DEFAULT);
+            screen.putString(x + 2, y + 2, "[No media - Press Ctrl+O to import]");
             return;
         }
         
@@ -162,9 +180,9 @@ public class VideoEditorApp {
                 formatDuration(asset.getDuration()));
             
             if (isSelected) {
-                screen.putString(x + 2, startY + i, ">" + line, TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.GREEN));
+                screen.putString(x + 2, startY + i, ">" + line, coloredChar('>', TextColor.ANSI.GREEN));
             } else {
-                screen.putString(x + 2, startY + i, " " + line, TextCharacter.DEFAULT);
+                screen.putString(x + 2, startY + i, " " + line);
             }
         }
     }
@@ -181,16 +199,14 @@ public class VideoEditorApp {
         ruler.append(formatDuration(playheadPosition));
         ruler.append(" | Total: ");
         ruler.append(formatDuration(calculateTotalDuration()));
-        screen.putString(x + 2, trackY, ruler.toString(), TextCharacter.DEFAULT);
+        screen.putString(x + 2, trackY, ruler.toString());
         trackY += 2;
         
         // Render tracks
         for (Track track : timeline.getTracks()) {
             String trackLabel = track.getType() == TrackType.VIDEO ? "[V]" : "[A]";
-            screen.putString(x + 2, trackY, trackLabel, TextCharacter.DEFAULT.fromForeground(
-                track.getType() == TrackType.VIDEO ? 
-                    com.googlecode.lanterna.TextColor.ANSI.BLUE : 
-                    com.googlecode.lanterna.TextColor.ANSI.YELLOW));
+            TextColor trackColor = track.getType() == TrackType.VIDEO ? TextColor.ANSI.BLUE : TextColor.ANSI.YELLOW;
+            screen.putString(x + 2, trackY, trackLabel, coloredChar('[', trackColor));
             
             // ASCII timeline visualization
             int timelineStart = x + 8;
@@ -202,7 +218,7 @@ public class VideoEditorApp {
                 timelineLine.append("─");
             }
             screen.putString(timelineStart, trackY, timelineLine.toString(), 
-                TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.BRIGHT_BLACK));
+                new TextCharacter('─').withForegroundColor(TextColor.ANSI.BRIGHT_BLACK));
             
             // Draw clips
             Duration totalDuration = calculateTotalDuration();
@@ -215,9 +231,9 @@ public class VideoEditorApp {
                     clipLength = Math.max(1, clipLength);
                     
                     String clipChar = clip.getType() != null ? "█" : "▓";
+                    TextCharacter clipCharStyled = new TextCharacter('█').withForegroundColor(TextColor.ANSI.CYAN);
                     for (int i = 0; i < clipLength && clipStart + i < timelineWidth; i++) {
-                        screen.putString(timelineStart + clipStart + i, trackY, clipChar,
-                            TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.CYAN));
+                        screen.putString(timelineStart + clipStart + i, trackY, clipChar, clipCharStyled);
                     }
                 }
             }
@@ -228,7 +244,7 @@ public class VideoEditorApp {
                                       totalDuration.toMillis());
                 if (playheadX >= 0 && playheadX < timelineWidth) {
                     screen.putString(timelineStart + playheadX, trackY, "│",
-                        TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.RED));
+                        new TextCharacter('│').withForegroundColor(TextColor.ANSI.RED));
                 }
             }
             
@@ -237,7 +253,7 @@ public class VideoEditorApp {
         
         // Controls hint
         screen.putString(x + 2, y + height - 2, "←→:Move playhead | S:Split | +:Add clip", 
-            TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.BRIGHT_BLACK));
+            new TextCharacter(' ').withForegroundColor(TextColor.ANSI.BRIGHT_BLACK));
     }
 
     private void renderInspectorPanel(int x, int y, int width, int height) {
@@ -250,41 +266,36 @@ public class VideoEditorApp {
             
             int row = y + 2;
             screen.putString(x + 2, row++, "Selected Media:", 
-                TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.GREEN));
-            screen.putString(x + 2, row++, "Path: " + truncate(asset.getPath(), width - 10), 
-                TextCharacter.DEFAULT);
-            screen.putString(x + 2, row++, "Duration: " + formatDuration(asset.getDuration()), 
-                TextCharacter.DEFAULT);
+                new TextCharacter(' ').withForegroundColor(TextColor.ANSI.GREEN));
+            screen.putString(x + 2, row++, "Path: " + truncate(asset.getPath(), width - 10));
+            screen.putString(x + 2, row++, "Duration: " + formatDuration(asset.getDuration()));
             
             Object widthObj = asset.getMetadataValue("width");
             Object heightObj = asset.getMetadataValue("height");
             if (widthObj != null && heightObj != null) {
-                screen.putString(x + 2, row++, "Resolution: " + widthObj + "x" + heightObj, 
-                    TextCharacter.DEFAULT);
+                screen.putString(x + 2, row++, "Resolution: " + widthObj + "x" + heightObj);
             }
             
             Object codecObj = asset.getMetadataValue("videoCodec");
             if (codecObj != null) {
-                screen.putString(x + 2, row++, "Codec: " + codecObj, TextCharacter.DEFAULT);
+                screen.putString(x + 2, row++, "Codec: " + codecObj);
             }
             
         } else if (selectedPanel == 1) {
             // Show export settings
             int row = y + 2;
             screen.putString(x + 2, row++, "Export Settings:", 
-                TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.GREEN));
+                new TextCharacter(' ').withForegroundColor(TextColor.ANSI.GREEN));
             
             ExportSettings settings = project.getSettings();
-            screen.putString(x + 2, row++, "Format: " + settings.getFormat(), TextCharacter.DEFAULT);
-            screen.putString(x + 2, row++, "Preset: " + settings.getPreset(), TextCharacter.DEFAULT);
-            screen.putString(x + 2, row++, "Resolution: " + settings.getWidth() + "x" + settings.getHeight(), 
-                TextCharacter.DEFAULT);
-            screen.putString(x + 2, row++, "Bitrate: " + (settings.getBitrate() / 1000000) + " Mbps", 
-                TextCharacter.DEFAULT);
+            screen.putString(x + 2, row++, "Format: " + settings.getFormat());
+            screen.putString(x + 2, row++, "Preset: " + settings.getPreset());
+            screen.putString(x + 2, row++, "Resolution: " + settings.getWidth() + "x" + settings.getHeight());
+            screen.putString(x + 2, row++, "Bitrate: " + (settings.getBitrate() / 1000000) + " Mbps");
             
             row++;
             screen.putString(x + 2, row++, "Press Ctrl+E to export", 
-                TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.YELLOW));
+                new TextCharacter(' ').withForegroundColor(TextColor.ANSI.YELLOW));
         }
     }
 
@@ -296,8 +307,8 @@ public class VideoEditorApp {
         }
         
         screen.fillRect(0, height - 2, width, 1, ' ', 
-            TextCharacter.DEFAULT.fromBackground(com.googlecode.lanterna.TextColor.ANSI.BRIGHT_BLACK));
-        screen.putString(2, height - 2, truncate(status, width - 4), TextCharacter.DEFAULT);
+            new ScreenColor(null, TextColor.ANSI.BRIGHT_BLACK));
+        screen.putString(2, height - 2, truncate(status, width - 4));
         
         // Panel selector
         String[] panelNames = {"[1] Media", "[2] Timeline", "[3] Inspector"};
@@ -305,9 +316,9 @@ public class VideoEditorApp {
         for (int i = 0; i < panelNames.length; i++) {
             if (i == selectedPanel) {
                 screen.putString(panelX + i * 15, height - 1, panelNames[i], 
-                    TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.GREEN));
+                    new TextCharacter(' ').withForegroundColor(TextColor.ANSI.GREEN));
             } else {
-                screen.putString(panelX + i * 15, height - 1, panelNames[i], TextCharacter.DEFAULT);
+                screen.putString(panelX + i * 15, height - 1, panelNames[i]);
             }
         }
     }
@@ -323,8 +334,8 @@ public class VideoEditorApp {
             return true;
         }
         
-        // Handle modifier keys
-        if (key.getModifiers() != null && key.getModifiers().contains(com.googlecode.lanterna.input.Modifier.CTRL)) {
+        // Handle modifier keys - Lanterna 3.x uses isCtrlDown() instead of getModifiers()
+        if (key.isCtrlDown()) {
             switch (key.getKeyType()) {
                 case Character:
                     char c = key.getCharacter();
@@ -534,34 +545,34 @@ public class VideoEditorApp {
 
     private void drawBox(int x, int y, int width, int height, String title) {
         // Top border with title
-        screen.putString(x, y, "┌", TextCharacter.DEFAULT);
+        screen.putString(x, y, "┌");
         StringBuilder top = new StringBuilder();
         for (int i = 0; i < width - 2; i++) {
             top.append("─");
         }
-        screen.putString(x + 1, y, top.toString(), TextCharacter.DEFAULT);
-        screen.putString(x + width - 1, y, "┐", TextCharacter.DEFAULT);
+        screen.putString(x + 1, y, top.toString());
+        screen.putString(x + width - 1, y, "┐");
         
         // Title
         if (title != null && !title.isEmpty()) {
             screen.putString(x + 2, y, " " + title + " ", 
-                TextCharacter.DEFAULT.fromForeground(com.googlecode.lanterna.TextColor.ANSI.GREEN));
+                new TextCharacter(' ').withForegroundColor(TextColor.ANSI.GREEN));
         }
         
         // Side borders
         for (int i = 1; i < height - 1; i++) {
-            screen.putString(x, y + i, "│", TextCharacter.DEFAULT);
-            screen.putString(x + width - 1, y + i, "│", TextCharacter.DEFAULT);
+            screen.putString(x, y + i, "│");
+            screen.putString(x + width - 1, y + i, "│");
         }
         
         // Bottom border
-        screen.putString(x, y + height - 1, "└", TextCharacter.DEFAULT);
+        screen.putString(x, y + height - 1, "└");
         StringBuilder bottom = new StringBuilder();
         for (int i = 0; i < width - 2; i++) {
             bottom.append("─");
         }
-        screen.putString(x + 1, y + height - 1, bottom.toString(), TextCharacter.DEFAULT);
-        screen.putString(x + width - 1, y + height - 1, "┘", TextCharacter.DEFAULT);
+        screen.putString(x + 1, y + height - 1, bottom.toString());
+        screen.putString(x + width - 1, y + height - 1, "┘");
     }
 
     private String truncate(String s, int maxLen) {
