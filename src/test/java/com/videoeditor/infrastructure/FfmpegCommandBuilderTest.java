@@ -20,9 +20,9 @@ public class FfmpegCommandBuilderTest {
     public void testBuildProbeCommand() {
         List<String> command = builder.buildProbeCommand("/path/to/video.mp4");
         
-        assertEquals(7, command.size());
+        assertEquals(8, command.size());
         assertEquals("ffprobe", command.get(0));
-        assertEquals("-show_streams", command.get(command.size() - 1));
+        assertEquals("-show_streams", command.get(command.size() - 2));
         assertTrue(command.contains("/path/to/video.mp4"));
     }
 
