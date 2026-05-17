@@ -1,20 +1,28 @@
 package com.videoeditor.domain;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * A clip on the timeline, referencing a media asset with timing information.
  */
+@Getter
+@Setter
+@ToString
 public class Clip {
     private final EntityId id;
     private final EntityId assetId;
-    private Duration startTime;      // Start time within the source asset
-    private Duration endTime;        // End time within the source asset
-    private Duration timelinePosition; // Position on the timeline
+    private Duration startTime;
+    private Duration endTime;
+    private Duration timelinePosition;
     private List<Effect> effects;
+    private String type;
 
     public Clip(EntityId assetId, Duration startTime, Duration endTime, Duration timelinePosition) {
         this.id = EntityId.generate();
@@ -23,57 +31,23 @@ public class Clip {
         this.endTime = endTime;
         this.timelinePosition = timelinePosition;
         this.effects = new ArrayList<>();
+        this.type = "default";
     }
 
-    // For JSON deserialization
+    @Builder
     public Clip(EntityId id, EntityId assetId, Duration startTime, Duration endTime, 
-                Duration timelinePosition, List<Effect> effects) {
-        this.id = id;
+                Duration timelinePosition, List<Effect> effects, String type) {
+        this.id = id != null ? id : EntityId.generate();
         this.assetId = assetId;
         this.startTime = startTime;
         this.endTime = endTime;
         this.timelinePosition = timelinePosition;
         this.effects = effects != null ? new ArrayList<>(effects) : new ArrayList<>();
-    }
-
-    public EntityId getId() {
-        return id;
-    }
-
-    public EntityId getAssetId() {
-        return assetId;
-    }
-
-    public Duration getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(Duration startTime) {
-        this.startTime = startTime;
-    }
-
-    public Duration getEndTime() {
-        return endTime;
-    }
-
-    public void setEndTime(Duration endTime) {
-        this.endTime = endTime;
-    }
-
-    public Duration getTimelinePosition() {
-        return timelinePosition;
-    }
-
-    public void setTimelinePosition(Duration timelinePosition) {
-        this.timelinePosition = timelinePosition;
+        this.type = type != null ? type : "default";
     }
 
     public Duration getDuration() {
         return endTime.minus(startTime);
-    }
-
-    public List<Effect> getEffects() {
-        return new ArrayList<>(effects);
     }
 
     public void addEffect(Effect effect) {
@@ -88,12 +62,5 @@ public class Clip {
 
     public void clearEffects() {
         effects.clear();
-    }
-
-    @Override
-    public String toString() {
-        return "Clip{id=" + id + ", assetId=" + assetId + 
-               ", start=" + startTime + ", end=" + endTime + 
-               ", pos=" + timelinePosition + "}";
     }
 }

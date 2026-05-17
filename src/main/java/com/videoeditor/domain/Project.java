@@ -1,5 +1,10 @@
 package com.videoeditor.domain;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,12 +12,15 @@ import java.util.List;
 /**
  * Main project entity containing all media assets and timeline.
  */
+@Getter
+@Setter
+@ToString
 public class Project {
     private static final String SCHEMA_VERSION = "1.0";
     
-    private EntityId id;
+    private final EntityId id;
     private String name;
-    private List<MediaAsset> mediaAssets;
+    private final List<MediaAsset> mediaAssets;
     private Timeline timeline;
     private ExportSettings settings;
     private Duration totalDuration;
@@ -26,31 +34,15 @@ public class Project {
         this.totalDuration = Duration.ZERO;
     }
 
-    // For JSON deserialization
+    @Builder
     public Project(EntityId id, String name, List<MediaAsset> mediaAssets, 
                    Timeline timeline, ExportSettings settings) {
-        this.id = id;
-        this.name = name;
+        this.id = id != null ? id : EntityId.generate();
+        this.name = name != null ? name : "Untitled Project";
         this.mediaAssets = mediaAssets != null ? new ArrayList<>(mediaAssets) : new ArrayList<>();
         this.timeline = timeline != null ? timeline : new Timeline();
         this.settings = settings != null ? settings : new ExportSettings();
         this.totalDuration = Duration.ZERO;
-    }
-
-    public EntityId getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public List<MediaAsset> getMediaAssets() {
-        return new ArrayList<>(mediaAssets);
     }
 
     public void addMediaAsset(MediaAsset asset) {
@@ -62,48 +54,17 @@ public class Project {
     }
 
     public MediaAsset getMediaAssetById(EntityId assetId) {
-        for (MediaAsset asset : mediaAssets) {
-            if (asset.getId().equals(assetId)) {
-                return asset;
-            }
-        }
-        return null;
+        return mediaAssets.stream()
+                .filter(asset -> asset.getId().equals(assetId))
+                .findFirst()
+                .orElse(null);
     }
 
     public int getMediaAssetCount() {
         return mediaAssets.size();
     }
 
-    public Timeline getTimeline() {
-        return timeline;
-    }
-
-    public void setTimeline(Timeline timeline) {
-        this.timeline = timeline;
-    }
-
-    public ExportSettings getSettings() {
-        return settings;
-    }
-
-    public void setSettings(ExportSettings settings) {
-        this.settings = settings;
-    }
-
-    public Duration getTotalDuration() {
-        return totalDuration;
-    }
-
-    public void setTotalDuration(Duration totalDuration) {
-        this.totalDuration = totalDuration;
-    }
-
     public String getSchemaVersion() {
         return SCHEMA_VERSION;
-    }
-
-    @Override
-    public String toString() {
-        return "Project{id=" + id + ", name='" + name + "', assets=" + mediaAssets.size() + "}";
     }
 }
