@@ -17,9 +17,6 @@ import java.nio.file.Path;
  */
 public class ProjectRepository {
     private static final Logger log = LoggerFactory.getLogger(ProjectRepository.class);
-    private static final String SCHEMA_VERSION_KEY = "schemaVersion";
-    private static final String CURRENT_SCHEMA_VERSION = "1.0";
-    
     private final ObjectMapper objectMapper;
 
     public ProjectRepository() {
@@ -35,9 +32,11 @@ public class ProjectRepository {
     public void save(Project project, Path path) throws IOException {
         log.info("Saving project to: {}", path);
         
-        // Ensure parent directory exists
-        Files.createDirectories(path.getParent());
-        
+        Path parent = path.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+
         objectMapper.writeValue(path.toFile(), project);
         log.info("Project saved successfully");
     }

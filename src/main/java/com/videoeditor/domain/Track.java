@@ -40,6 +40,10 @@ public class Track {
         clips.add(clip);
     }
 
+    public void insertClip(int index, Clip clip) {
+        clips.add(index, clip);
+    }
+
     public void removeClip(Clip clip) {
         clips.remove(clip);
     }

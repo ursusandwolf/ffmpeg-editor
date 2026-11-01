@@ -37,8 +37,9 @@ git clone https://github.com/ursusandwolf/ffmpeg-editor.git
 cd ffmpeg-editor
 
 # Gradle (recommended)
-./gradlew run          # Linux / macOS
-gradlew.bat run        # Windows
+./gradlew run                              # Linux / macOS
+gradlew.bat run                            # Windows
+./gradlew run --args="clip.mp4 other.mkv"  # import on start
 
 # or Maven
 mvn -q compile exec:java
@@ -151,15 +152,26 @@ Project JSON schema version `1.0`:
 
 ---
 
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, TUI split, key flows |
+| [docs/SPRINTS.md](docs/SPRINTS.md) | Sprint 0–5 plan with acceptance criteria |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md) | Start, troubleshoot, escalate |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release notes |
+
 ## Roadmap
 
-- [ ] Native file dialog for import
-- [ ] Undo / redo
-- [ ] Transitions & volume envelopes
-- [ ] Multi-track snapping
-- [ ] Low-res preview render
-- [ ] Headless / CLI export mode
-- [ ] Recent projects list
+Tracked in [docs/SPRINTS.md](docs/SPRINTS.md). Near-term Must items:
+
+- [ ] In-TUI import path prompt + project load/schema check
+- [ ] Split / trim / playhead editing
+- [ ] Effects wired into export `filter_complex`
+- [ ] Executor shutdown + resize-safe TUI
+- [ ] CI + `v0.2.0` release
+
+Later: transitions, snapping, low-res preview, headless export-only mode.
 
 ---
 

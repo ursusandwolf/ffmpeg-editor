@@ -142,9 +142,9 @@ public class ImportMediaCommand {
                 // Modify first clip
                 clip.setEndTime(newStartTime);
                 
-                // Add second clip after the first
+                // Add second clip after the first (must mutate track, not a defensive copy)
                 int index = track.getClipIndex(clip);
-                track.getClips().add(index + 1, secondClip);
+                track.insertClip(index + 1, secondClip);
                 
                 log.info("Split clip {} at {}", clipId, splitPosition);
                 return;

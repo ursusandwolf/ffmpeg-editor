@@ -1,5 +1,7 @@
 package com.videoeditor.infrastructure.ffmpeg;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,20 +11,19 @@ import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Client for interacting with ffprobe to extract media metadata.
  */
 public class FfprobeClient {
     private static final Logger log = LoggerFactory.getLogger(FfprobeClient.class);
+
     private final String ffprobePath;
     private final ExecutorService executor;
+    private final ObjectMapper objectMapper;
 
     public FfprobeClient() {
         this("ffprobe");
@@ -31,6 +32,7 @@ public class FfprobeClient {
     public FfprobeClient(String ffprobePath) {
         this.ffprobePath = ffprobePath;
         this.executor = Executors.newCachedThreadPool();
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -45,7 +47,7 @@ public class FfprobeClient {
      */
     public MediaMetadata probe(String filePath) {
         log.info("Probing media file: {}", filePath);
-        
+
         List<String> command = new ArrayList<>();
         command.add(ffprobePath);
         command.add("-v");
@@ -76,7 +78,7 @@ public class FfprobeClient {
                 throw new FfprobeException("ffprobe failed with exit code: " + exitCode);
             }
 
-            return parseJsonOutput(output.toString(), filePath);
+            return parseJsonOutput(output.toString());
 
         } catch (IOException e) {
             log.error("Failed to execute ffprobe", e);
@@ -87,80 +89,50 @@ public class FfprobeClient {
         }
     }
 
-    private MediaMetadata parseJsonOutput(String json, String filePath) {
+    private MediaMetadata parseJsonOutput(String json) throws IOException {
         MediaMetadata metadata = new MediaMetadata();
-        
-        // Simple parsing without full JSON library for streams/format
-        // Duration
-        Pattern durationPattern = Pattern.compile("\"duration\"\\s*:\\s*\"([0-9.]+)\"");
-        Matcher durationMatcher = durationPattern.matcher(json);
-        if (durationMatcher.find()) {
-            double seconds = Double.parseDouble(durationMatcher.group(1));
-            metadata.setDuration(Duration.ofMillis((long) (seconds * 1000)));
+        JsonNode root = objectMapper.readTree(json);
+
+        JsonNode format = root.path("format");
+        if (format.hasNonNull("duration")) {
+            double seconds = format.get("duration").asDouble();
+            metadata.setDuration(Duration.ofMillis(Math.round(seconds * 1000)));
+        }
+        if (format.has("size")) {
+            metadata.setFileSize(format.get("size").asLong());
         }
 
-        // File size
-        Pattern sizePattern = Pattern.compile("\"size\"\\s*:\\s*\"?([0-9]+)\"?");
-        Matcher sizeMatcher = sizePattern.matcher(json);
-        if (sizeMatcher.find()) {
-            metadata.setFileSize(Long.parseLong(sizeMatcher.group(1)));
-        }
-
-        // Video stream info
-        Pattern videoCodecPattern = Pattern.compile("\"codec_name\"\\s*:\\s*\"([^\"]+)\"");
-        Pattern widthPattern = Pattern.compile("\"width\"\\s*:\\s*([0-9]+)");
-        Pattern heightPattern = Pattern.compile("\"height\"\\s*:\\s*([0-9]+)");
-        Pattern frameratePattern = Pattern.compile("\"r_frame_rate\"\\s*:\\s*\"([0-9]+)/([0-9]+)\"");
-
-        // Find video stream section
-        int videoStreamIndex = json.indexOf("\"codec_type\"\\s*:\\s*\"video\"".replace("\\s*", ""));
-        if (videoStreamIndex == -1) {
-            // Try simpler match
-            videoStreamIndex = json.indexOf("\"codec_type\":\"video\"");
-        }
-        
-        if (videoStreamIndex >= 0) {
-            String videoSection = json.substring(videoStreamIndex, 
-                Math.min(videoStreamIndex + 2000, json.length()));
-            
-            Matcher codecMatcher = videoCodecPattern.matcher(videoSection);
-            if (codecMatcher.find()) {
-                metadata.setVideoCodec(codecMatcher.group(1));
-            }
-
-            Matcher widthMatcher = widthPattern.matcher(videoSection);
-            if (widthMatcher.find()) {
-                metadata.setWidth(Integer.parseInt(widthMatcher.group(1)));
-            }
-
-            Matcher heightMatcher = heightPattern.matcher(videoSection);
-            if (heightMatcher.find()) {
-                metadata.setHeight(Integer.parseInt(heightMatcher.group(1)));
-            }
-
-            Matcher framerateMatcher = frameratePattern.matcher(videoSection);
-            if (framerateMatcher.find()) {
-                double num = Double.parseDouble(framerateMatcher.group(1));
-                double den = Double.parseDouble(framerateMatcher.group(2));
-                if (den > 0) {
-                    metadata.setFrameRate(num / den);
+        JsonNode streams = root.path("streams");
+        if (streams.isArray()) {
+            for (JsonNode stream : streams) {
+                String codecType = stream.path("codec_type").asText();
+                if ("video".equals(codecType) && metadata.getVideoCodec() == null) {
+                    metadata.setVideoCodec(stream.path("codec_name").asText(null));
+                    metadata.setWidth(stream.path("width").asInt(0));
+                    metadata.setHeight(stream.path("height").asInt(0));
+                    metadata.setFrameRate(parseFrameRate(stream.path("r_frame_rate").asText(null)));
+                } else if ("audio".equals(codecType) && metadata.getAudioCodec() == null) {
+                    metadata.setAudioCodec(stream.path("codec_name").asText(null));
                 }
-            }
-        }
-
-        // Audio stream
-        int audioStreamIndex = json.indexOf("\"codec_type\":\"audio\"");
-        if (audioStreamIndex >= 0) {
-            String audioSection = json.substring(audioStreamIndex,
-                Math.min(audioStreamIndex + 1000, json.length()));
-            Matcher audioCodecMatcher = videoCodecPattern.matcher(audioSection);
-            if (audioCodecMatcher.find()) {
-                metadata.setAudioCodec(audioCodecMatcher.group(1));
             }
         }
 
         log.debug("Parsed metadata: {}", metadata);
         return metadata;
+    }
+
+    private static double parseFrameRate(String rate) {
+        if (rate == null || rate.isBlank() || "0/0".equals(rate)) {
+            return 0;
+        }
+        String[] parts = rate.split("/");
+        if (parts.length == 2) {
+            double den = Double.parseDouble(parts[1]);
+            if (den > 0) {
+                return Double.parseDouble(parts[0]) / den;
+            }
+        }
+        return Double.parseDouble(rate);
     }
 
     /**
@@ -169,10 +141,14 @@ public class FfprobeClient {
     public boolean isAvailable() {
         try {
             ProcessBuilder pb = new ProcessBuilder(ffprobePath, "-version");
+            pb.redirectErrorStream(true);
             Process process = pb.start();
-            int exitCode = process.waitFor();
-            return exitCode == 0;
-        } catch (IOException | InterruptedException e) {
+            process.getInputStream().readAllBytes();
+            return process.waitFor() == 0;
+        } catch (IOException e) {
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return false;
         }
     }

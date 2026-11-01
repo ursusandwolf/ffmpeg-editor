@@ -123,7 +123,8 @@ public class FfmpegCommandBuilderTest {
             List.of(mute)
         );
         
-        String filterArg = command.get(command.indexOf("-vf") + 1);
+        assertTrue(command.contains("-af"));
+        String filterArg = command.get(command.indexOf("-af") + 1);
         assertTrue(filterArg.contains("volume=0"));
     }
 

@@ -130,10 +130,14 @@ public class FfmpegJobRunner {
     public boolean isAvailable() {
         try {
             ProcessBuilder pb = new ProcessBuilder(ffmpegPath, "-version");
+            pb.redirectErrorStream(true);
             Process process = pb.start();
-            int exitCode = process.waitFor();
-            return exitCode == 0;
-        } catch (IOException | InterruptedException e) {
+            process.getInputStream().readAllBytes();
+            return process.waitFor() == 0;
+        } catch (IOException e) {
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return false;
         }
     }
@@ -144,13 +148,22 @@ public class FfmpegJobRunner {
     public String getVersion() {
         try {
             ProcessBuilder pb = new ProcessBuilder(ffmpegPath, "-version");
+            pb.redirectErrorStream(true);
             Process process = pb.start();
-            
+
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
-                return reader.readLine();
+                String version = reader.readLine();
+                while (reader.readLine() != null) {
+                    // drain remaining output to avoid pipe deadlock
+                }
+                process.waitFor();
+                return version != null ? version : "Unknown";
             }
         } catch (IOException e) {
+            return "Unknown";
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return "Unknown";
         }
     }

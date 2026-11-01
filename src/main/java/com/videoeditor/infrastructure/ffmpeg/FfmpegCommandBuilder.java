@@ -4,14 +4,9 @@ import com.videoeditor.domain.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 /**
  * Builder for constructing FFmpeg commands based on project and export settings.
@@ -171,67 +166,72 @@ public class FfmpegCommandBuilder {
         command.add("-i");
         command.add(inputPath);
 
-        StringBuilder filters = new StringBuilder();
-        boolean hasFilters = false;
+        StringBuilder videoFilters = new StringBuilder();
+        StringBuilder audioFilters = new StringBuilder();
 
         for (Effect effect : effects) {
             switch (effect.getType()) {
                 case FADE_IN:
                     Object durationObj = effect.getParameter("duration");
-                    double fadeDuration = durationObj != null ? 
+                    double fadeDuration = durationObj != null ?
                         Double.parseDouble(durationObj.toString()) : 1.0;
-                    filters.append("fade=t=in:st=0:d=").append(fadeDuration).append(",");
-                    hasFilters = true;
+                    videoFilters.append("fade=t=in:st=0:d=").append(fadeDuration).append(",");
                     break;
-                    
+
                 case FADE_OUT:
                     Object outDurationObj = effect.getParameter("duration");
-                    double fadeOutDuration = outDurationObj != null ? 
+                    double fadeOutDuration = outDurationObj != null ?
                         Double.parseDouble(outDurationObj.toString()) : 1.0;
-                    filters.append("fade=t=out:st=0:d=").append(fadeOutDuration).append(",");
-                    hasFilters = true;
+                    videoFilters.append("fade=t=out:st=0:d=").append(fadeOutDuration).append(",");
                     break;
-                    
+
                 case MUTE:
-                    filters.append("volume=enable='between(t,0,9999)':volume=0,");
-                    hasFilters = true;
+                    audioFilters.append("volume=0,");
                     break;
-                    
+
                 case WATERMARK:
                     Object textObj = effect.getParameter("text");
                     if (textObj != null) {
                         String escapedText = textObj.toString()
-                            .replace("'", "'\\''");
-                        filters.append("drawtext=text='").append(escapedText)
+                            .replace("\\", "\\\\")
+                            .replace(":", "\\:")
+                            .replace("'", "\\'");
+                        videoFilters.append("drawtext=text='").append(escapedText)
                             .append("':fontcolor=white:fontsize=24:x=10:y=10,");
-                        hasFilters = true;
                     }
                     break;
-                    
+
                 case SPEED_CHANGE:
                     Object speedObj = effect.getParameter("speed");
                     if (speedObj != null) {
                         double speed = Double.parseDouble(speedObj.toString());
-                        filters.append("setpts=").append(1.0 / speed)
-                            .append("*PTS,");
+                        if (speed > 0) {
+                            videoFilters.append("setpts=").append(1.0 / speed).append("*PTS,");
+                            audioFilters.append("atempo=").append(speed).append(",");
+                        }
                     }
-                    hasFilters = true;
+                    break;
+
+                default:
                     break;
             }
         }
 
-        if (hasFilters) {
-            // Remove trailing comma
-            String filterStr = filters.toString();
-            if (filterStr.endsWith(",")) {
-                filterStr = filterStr.substring(0, filterStr.length() - 1);
-            }
+        String videoFilter = trimTrailingComma(videoFilters.toString());
+        String audioFilter = trimTrailingComma(audioFilters.toString());
+
+        if (!videoFilter.isEmpty()) {
             command.add("-vf");
-            command.add(filterStr);
+            command.add(videoFilter);
+        }
+        if (!audioFilter.isEmpty()) {
+            command.add("-af");
+            command.add(audioFilter);
+        } else {
+            command.add("-c:a");
+            command.add("copy");
         }
 
-        command.add("-c:a");
-        command.add("copy");
         command.add(outputPath);
 
         return command;
@@ -250,6 +250,13 @@ public class FfmpegCommandBuilder {
         long seconds = duration.getSeconds();
         int nanos = duration.getNano();
         return String.format("%d.%09d", seconds, nanos);
+    }
+
+    private static String trimTrailingComma(String filter) {
+        if (filter.endsWith(",")) {
+            return filter.substring(0, filter.length() - 1);
+        }
+        return filter;
     }
 
     /**

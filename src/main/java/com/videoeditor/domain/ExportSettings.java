@@ -1,7 +1,5 @@
 package com.videoeditor.domain;
 
-import java.time.Duration;
-
 /**
  * Settings for video export.
  */

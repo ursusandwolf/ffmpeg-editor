@@ -81,6 +81,21 @@ public class DomainModelTest {
     }
 
     @Test
+    public void testTrackInsertClipMutatesBackingList() {
+        Track track = new Track(TrackType.VIDEO);
+        Clip first = new Clip(EntityId.generate(), Duration.ZERO,
+                Duration.ofSeconds(10), Duration.ZERO);
+        Clip second = new Clip(EntityId.generate(), Duration.ofSeconds(10),
+                Duration.ofSeconds(20), Duration.ofSeconds(10));
+
+        track.addClip(first);
+        track.insertClip(1, second);
+
+        assertEquals(2, track.getClipCount());
+        assertEquals(second.getId(), track.getClips().get(1).getId());
+    }
+
+    @Test
     public void testTimelineDefaultTracks() {
         Timeline timeline = new Timeline();
         
