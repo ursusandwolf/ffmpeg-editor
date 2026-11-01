@@ -1,207 +1,170 @@
-# Video Editor MVP
+# FFmpeg Editor
 
-A minimal viable video editor with TUI (Text User Interface) built with Java, Lanterna, and FFmpeg.
+**Terminal video editor** — cut, arrange, filter and export media through FFmpeg, without leaving your shell.
 
-## Features
+Built with Java 17, [Lanterna](https://github.com/mabe02/lanterna) TUI and a clean hexagonal layout.
 
-### Media Management
-- Import video files
-- View metadata (duration, resolution, codec, etc.)
-- Media library panel
+<p align="center">
+  <img alt="Java" src="https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white" />
+  <img alt="FFmpeg" src="https://img.shields.io/badge/FFmpeg-required-007808?style=flat-square&logo=ffmpeg&logoColor=white" />
+  <img alt="Build" src="https://img.shields.io/badge/Build-Gradle%208.5-02303A?style=flat-square&logo=gradle&logoColor=white" />
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" />
+  <img alt="Status" src="https://img.shields.io/badge/Status-MVP-orange?style=flat-square" />
+</p>
 
-### Timeline Editing
-- Add clips to timeline
-- Video and audio tracks
-- ASCII visualization of timeline
-- Playhead navigation
-- Delete clips
+---
 
-### Effects (via FFmpeg filters)
-- Fade in/out
-- Watermark text overlay
-- Mute audio
-- Speed change
+## Why
 
-### Export
-- Multiple formats: MP4, MKV, WebM
-- Quality presets: Fast, Balanced, High Quality
-- Configurable resolution and bitrate
-- Progress tracking
-- Cancel support
+Most NLE tools are heavy GUIs. This project keeps the editing loop in the terminal: import → timeline → effects → export, while FFmpeg does the real work.
 
-### Project Management
-- Save/load projects as JSON
-- Versioned schema
+| Area | What you get |
+|------|----------------|
+| Media | Import files, inspect duration / resolution / codecs |
+| Timeline | Video & audio tracks, ASCII timeline, playhead, split / delete |
+| Effects | Fade in/out, watermark text, mute, speed change |
+| Export | MP4 / MKV / WebM · Fast / Balanced / High Quality · progress + cancel |
+| Projects | Save / load versioned JSON |
 
-## Requirements
+---
 
-- Java 21+
-- FFmpeg and ffprobe installed and in PATH
-- Terminal with UTF-8 support
+## Quick start
 
-## Installation
+**Requirements:** Java 17+, FFmpeg + ffprobe on `PATH`, UTF-8 terminal (≥ 80×24).
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd video-editor
+git clone https://github.com/ursusandwolf/ffmpeg-editor.git
+cd ffmpeg-editor
 
-# Build with Gradle
-./gradlew build
+# Gradle (recommended)
+./gradlew run          # Linux / macOS
+gradlew.bat run        # Windows
 
-# Run the application
-./gradlew run
+# or Maven
+mvn -q compile exec:java
 ```
 
-## Usage
+Verify tooling:
 
-### Keyboard Controls
+```bash
+java -version
+ffmpeg -version
+ffprobe -version
+```
+
+---
+
+## Controls
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+O` | Import media file |
+| `Ctrl+O` | Import media |
 | `Ctrl+S` | Save project |
-| `Ctrl+E` | Export project |
+| `Ctrl+E` | Export |
 | `Ctrl+R` | Refresh metadata |
-| `←/→` | Navigate between panels |
-| `↑/↓` | Navigate within panel |
-| `Enter` | Add selected media to timeline |
-| `Delete` | Remove selected item |
+| `←` `→` | Switch panel |
+| `↑` `↓` | Move selection |
+| `Enter` | Add media to timeline |
+| `Delete` | Remove selection |
 | `S` | Split clip at playhead |
-| `+` | Add clip to timeline |
+| `+` | Add clip |
 | `Space` | Reset playback |
-| `Q` | Quit application |
+| `Q` | Quit |
 
-### Panels
+**Panels:** Media Library → Timeline → Inspector
 
-1. **Media Library** (left) - Shows imported media files
-2. **Timeline** (center) - Visual timeline with tracks and clips
-3. **Inspector** (right) - Shows details of selected item or export settings
+**Typical flow:** `Ctrl+O` → select clip → `Enter` → arrange on timeline → `Ctrl+E`.
 
-### Workflow
-
-1. Press `Ctrl+O` to import a video file (provide path via command line argument)
-2. Select the media in the library and press `Enter` to add to timeline
-3. Arrange clips on the timeline
-4. Press `Ctrl+E` to export the final video
+---
 
 ## Architecture
 
 ```
 com.videoeditor
-├── domain              # Core business entities
-│   ├── Project
-│   ├── MediaAsset
-│   ├── Timeline
-│   ├── Track
-│   ├── Clip
-│   ├── Effect
-│   └── ExportSettings
-├── application         # Use cases / commands
-│   └── commands
-│       ├── ImportMediaCommand
-│       └── ExportProjectCommand
-├── infrastructure      # External adapters
-│   ├── ffmpeg
-│   │   ├── FfprobeClient
-│   │   ├── FfmpegCommandBuilder
-│   │   └── FfmpegJobRunner
-│   └── persistence
-│       └── ProjectRepository
-└── presentation        # UI layer
-    └── tui
-        └── VideoEditorApp
+├── domain                 # Project, Clip, Timeline, Track, Effect, ExportSettings
+├── application/commands   # ImportMediaCommand, ExportProjectCommand
+├── infrastructure
+│   ├── ffmpeg             # FfprobeClient, FfmpegCommandBuilder, FfmpegJobRunner
+│   └── persistence        # ProjectRepository (JSON)
+└── presentation/tui       # VideoEditorApp (Lanterna)
 ```
 
-## Example FFmpeg Commands Generated
+Domain stays free of FFmpeg/UI details; adapters talk to the process and the screen.
 
-### Basic Export
+<details>
+<summary>Example FFmpeg commands the builder emits</summary>
+
 ```bash
+# basic export
 ffmpeg -y -preset medium -i input.mp4 -c:v libx264 -c:a aac -b:v 5000000 output.mp4
-```
 
-### With Fade Effect
-```bash
+# fade in
 ffmpeg -y -i input.mp4 -vf "fade=t=in:st=0:d=1" -c:a copy output.mp4
-```
 
-### With Watermark
-```bash
+# watermark
 ffmpeg -y -i input.mp4 -vf "drawtext=text='My Video':fontcolor=white:fontsize=24:x=10:y=10" -c:a copy output.mp4
-```
 
-### Trim Video
-```bash
+# trim
 ffmpeg -y -i input.mp4 -ss 10 -to 30 -c copy output.mp4
 ```
 
-## Configuration
+</details>
 
-### Logging
+---
 
-Logs are written to `logs/video-editor.log`. Configure in `src/main/resources/logback.xml`.
+## Build & test
 
-### Project Format
+```bash
+./gradlew build          # compile + tests + fat jar
+./gradlew test
+./gradlew test --tests DomainModelTest
 
-Projects are saved as JSON with schema version 1.0:
+# Maven alternative
+mvn test
+mvn package
+```
+
+Logs: `logs/video-editor.log` (see `src/main/resources/logback.xml`).
+
+Project JSON schema version `1.0`:
 
 ```json
 {
   "schemaVersion": "1.0",
   "id": "uuid",
   "name": "Project Name",
-  "mediaAssets": [...],
-  "timeline": {...},
-  "settings": {...}
+  "mediaAssets": [],
+  "timeline": {},
+  "settings": {}
 }
 ```
 
-## Testing
-
-```bash
-# Run all tests
-./gradlew test
-
-# Run specific test class
-./gradlew test --tests DomainModelTest
-```
+---
 
 ## Troubleshooting
 
-### FFmpeg not found
-Ensure FFmpeg is installed and available in your PATH:
-```bash
-ffmpeg -version
-ffprobe -version
-```
+| Problem | Fix |
+|---------|-----|
+| `ffmpeg` / `ffprobe` not found | Install FFmpeg and add it to `PATH` |
+| Broken TUI layout | Use a UTF-8 terminal, resize to at least 80×24 |
+| Import fails | Check the file path and that the container is supported by FFmpeg |
 
-### Terminal display issues
-Ensure your terminal supports UTF-8 and has adequate size (minimum 80x24).
+---
 
-### Import fails
-Check that the video file is not corrupted and is in a supported format.
+## Roadmap
 
-## Roadmap (v0.2)
-
-- [ ] File dialog for importing media
-- [ ] Drag-and-drop clip reordering
-- [ ] Undo/Redo functionality
-- [ ] Audio volume control
-- [ ] Transition effects between clips
-- [ ] Multi-track editing improvements
-- [ ] Snapping for clip alignment
-- [ ] Keyboard shortcut customization
-- [ ] Preview rendering (low-res)
-- [ ] Batch import
+- [ ] Native file dialog for import
+- [ ] Undo / redo
+- [ ] Transitions & volume envelopes
+- [ ] Multi-track snapping
+- [ ] Low-res preview render
+- [ ] Headless / CLI export mode
 - [ ] Recent projects list
-- [ ] Command-line interface mode
+
+---
 
 ## License
 
-MIT License
+MIT © [ursusandwolf](https://github.com/ursusandwolf)
 
-## Credits
-
-- [Lanterna](https://github.com/mabe02/lanterna) - TUI library
-- [FFmpeg](https://ffmpeg.org/) - Media processing engine
-- Inspired by Sony Vegas Pro workflow concepts
+**Credits:** [Lanterna](https://github.com/mabe02/lanterna) · [FFmpeg](https://ffmpeg.org/) · workflow ideas inspired by classic NLE timelines

@@ -1,39 +1,51 @@
-```
-# Compiled Java classes
+# Compiled class files
 *.class
 
-# Dependencies
-lib/
-libs/
-dependency/
-dependencies/
-
-# Build artifacts
-target/
+# Build outputs
 build/
-dist/
+target/
 out/
+dist/
+*.jar
+*.war
+*.ear
+!gradle/wrapper/gradle-wrapper.jar
 
-# IDE files
+# Gradle
+.gradle/
+gradle-*/
+!gradle/wrapper/
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar.bak
+
+# IDE
 .idea/
 .vscode/
 *.iml
 *.ipr
 *.iws
+*.swp
+*~
 
 # Logs
+logs/
 *.log
 
-# Environment
+# Environment / secrets
 .env
-.env.local
-*.env.*
+.env.*
+!.env.example
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Temp files
+# Temp
 *.tmp
 *.temp
-```
+*.bak
+
+# Application runtime
+*.project.json

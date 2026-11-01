@@ -5,25 +5,31 @@ plugins {
 
 group = 'com.videoeditor'
 version = '0.1.0-SNAPSHOT'
-sourceCompatibility = '17'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    // Lanterna TUI
     implementation 'com.googlecode.lanterna:lanterna:3.1.1'
-    
-    // Jackson for JSON serialization
+
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.16.1'
-    
-    // Logging
+
     implementation 'org.slf4j:slf4j-api:2.0.11'
     implementation 'ch.qos.logback:logback-classic:1.4.14'
-    
-    // Testing
+
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    testCompileOnly 'org.projectlombok:lombok:1.18.30'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
